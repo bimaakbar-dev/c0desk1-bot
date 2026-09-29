@@ -11,24 +11,24 @@ export default {
     // Command: /start
     bot.command("start", (ctx) =>
       ctx.reply(
-        "🌸 Selamat datang di c0desk1 bot!\n\n" +
+        "Selamat datang di c0desk1[bot]!\n\n" +
           "Command yang tersedia:\n" +
           "/start - Mulai bot\n" +
           "/help - Bantuan\n" +
           "/blog - Artikel blog terbaru\n\n" +
           "Channel: t.me/c0desk1\n" +
-          "Discord: discord.gg/xxx"
+          "Discord: discord.gg/zzaUTzWbm"
       )
     );
 
     // Command: /help
     bot.command("help", (ctx) =>
       ctx.reply(
-        "📖 Bantuan\n\n" +
+        "Bantuan\n\n" +
           "/start - Mulai bot\n" +
           "/help - Bantuan\n" +
           "/blog - Artikel blog terbaru\n\n" +
-          "Butuh bantuan lain? Hubungi @bimaakbar."
+          "Butuh bantuan lain? Hubungi @Bimaakbar."
       )
     );
 
@@ -41,7 +41,7 @@ export default {
         const items = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
         const top5 = items.slice(0, 5);
 
-        let message = "📝 <b>Artikel Blog Terbaru</b>\n\n";
+        let message = "<b>Artikel Blog Terbaru</b>\n\n";
 
         for (const item of top5) {
           const title = item.match(/<title>(.*?)<\/title>/)?.[1] ?? "Tanpa judul";
@@ -49,16 +49,14 @@ export default {
 
           message += `• <a href="${link}">${title}</a>\n\n`;
         }
-
-        message += "🔗 <a href=\"https://bimaakbar-dev.github.io\">Lihat semua</a>";
+        message += "<a href=\"https://bimaakbar-dev.github.io/blog/\">Lihat semua →</a>";
 
         await ctx.reply(message, { parse_mode: "HTML" });
       } catch (err) {
-        await ctx.reply("❌ Gagal ambil artikel. Coba lagi nanti.");
+        await ctx.reply("❌ GAGAL ambil artikel. Coba lagi nanti.");
       }
     });
 
-    // Handle semua update
     const handler = webhookCallback(bot, "cloudflare-mod");
     return handler(request);
   },
