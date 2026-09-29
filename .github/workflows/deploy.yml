@@ -20,7 +20,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-package-lock
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
