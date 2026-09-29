@@ -56,6 +56,34 @@ export default {
         await ctx.reply("❌ GAGAL ambil artikel. Coba lagi nanti.");
       }
     });
+    
+    // Auto-welcome untuk member baru di grup
+	bot.on("message:new_chat_members", async (ctx) => {
+  	const newMembers = ctx.message.new_chat_members;
+  
+  	for (const member of newMembers) {
+    	// Skip kalau yang join adalah bot
+    	if (member.is_bot) continue;
+    
+    	const name = member.first_name || member.username || "Pengguna";
+    	const mention = `[${name}](tg://user?id=${member.id})`;
+    
+    	await ctx.reply(
+      	`Selamat datang ${mention}!\n\n` +
+        	`Senang kamu bergabung di c0desk1 discuss.\n\n` +
+        	`Aturan singkat:\n` +
+        	`• Saling menghormati\n` +
+        	`• No spam, no SARA\n` +
+        	`• Bahasa Indonesia/English OK\n\n`,
+      		{ parse_mode: "Markdown" }
+    	);
+  	}
+	});
+
+	// Auto-welcome untuk member baru di channel (opsional)
+	bot.on("channel_chat_created", (ctx) => {
+  	ctx.reply("Channel c0desk1 siap!");
+	});
 
     const handler = webhookCallback(bot, "cloudflare-mod");
     return handler(request);
