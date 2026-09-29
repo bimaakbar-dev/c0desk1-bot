@@ -59,7 +59,6 @@ export default {
     });
 
     // Auto-welcome untuk member baru di grup
-    // Pakai bot.filter().use() — middleware yang bisa dipanggil webhookCallback
     bot
       .filter((ctx) => {
         const msg = ctx.message;
@@ -78,12 +77,11 @@ export default {
           const mention = `[${name}](tg://user?id=${member.id})`;
 
           await ctx.reply(
-            `Selamat datang ${mention}!\n\n` +
-              `Senang kamu bergabung di c0desk1 discuss.\n\n` +
+            `Selamat datang ${mention} di c0desk1!\n\n` +
               `Aturan singkat:\n` +
               `• Saling menghormati\n` +
               `• No spam, no SARA\n` +
-              `• Bahasa Indonesia/English OK\n\n`,
+              `• Bahasa Indonesia/English OK`,
             { parse_mode: "Markdown" }
           );
         }
