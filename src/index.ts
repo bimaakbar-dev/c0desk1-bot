@@ -1,12 +1,12 @@
 import { Bot, webhookCallback } from "grammy";
 
 export interface Env {
-  BOT_TOKEN: string;
+  TELEGRAM_BOT_TOKEN: string;
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const bot = new Bot(env.BOT_TOKEN);
+    const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
 
     // Command: /start
     bot.command("start", (ctx) =>
