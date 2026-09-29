@@ -2,7 +2,7 @@ import { Bot, webhookCallback } from "grammy";
 
 export interface Env {
   TELEGRAM_BOT_TOKEN: string;
-  GITHUB_WEBHOOK_SECRET: string;
+  GH_WEBHOOK_SECRET: string;
   ADMIN_CHAT_ID: string;
   DISCORD_WEBHOOK_GISCUS: string;
 }
@@ -121,7 +121,7 @@ async function handleGithub(request: Request, env: Env): Promise<Response> {
   const signature = request.headers.get("x-hub-signature-256");
 
   const valid = await verifySignature(
-    env.GITHUB_WEBHOOK_SECRET,
+    env.GH_WEBHOOK_SECRET,
     body,
     signature
   );
