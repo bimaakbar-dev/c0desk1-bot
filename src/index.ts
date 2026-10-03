@@ -9,6 +9,199 @@ export interface Env {
   DISCORD_WEBHOOK_GISCUS: string;
 }
 
+const ADMIN_USER_ID = 1605070949;
+
+const ANILIST_URL = "https://graphql.anilist.co";
+
+const ANILIST_QUERY = `
+  query ($search: String) {
+    Media(search: $search, type: ANIME) {
+      id
+      title { romaji english native }
+      coverImage { extraLarge large }
+      format
+      status
+      seasonYear
+      episodes
+      genres
+      averageScore
+      studios(isMain: true) { nodes { name } }
+      startDate { year month day }
+    }
+  }
+`;
+
+const FORMAT_MAP: Record<string, string> = {
+  TV: "TV",
+  TV_SHORT: "TV",
+  MOVIE: "Movie",
+  SPECIAL: "Special",
+  OVA: "OVA",
+  ONA: "ONA",
+  MUSIC: "Special",
+};
+
+const STATUS_MAP: Record<string, string> = {
+  FINISHED: "Completed",
+  RELEASING: "Ongoing",
+  NOT_YET_RELEASED: "Ongoing",
+  CANCELLED: "Hiatus",
+  HIATUS: "Hiatus",
+};
+
+interface AniListMedia {
+  id: number;
+  title: { romaji: string; english: string | null; native: string | null };
+  coverImage: { extraLarge: string; large: string };
+  format: string;
+  status: string;
+  seasonYear: number | null;
+  episodes: number | null;
+  genres: string[];
+  averageScore: number | null;
+  studios: { nodes: { name: string }[] };
+  startDate: { year: number | null; month: number | null; day: number | null };
+}
+
+async function searchAniList(title: string): Promise<AniListMedia | null> {
+  const res = await fetch(ANILIST_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+    body: JSON.stringify({
+      query: ANILIST_QUERY,
+      variables: { search: title },
+    }),
+  });
+
+  if (!res.ok) throw new Error(`AniList: HTTP ${res.status}`);
+
+  const json = (await res.json()) as {
+    data?: { Media: AniListMedia | null };
+    errors?: any[];
+  };
+
+  if (json.errors?.length) throw new Error(json.errors[0]?.message ?? "AniList error");
+
+  return json.data?.Media ?? null;
+}
+
+function pickTitle(media: AniListMedia): string {
+  return media.title.romaji || media.title.english || media.title.native || "Unknown";
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function buildYaml(media: AniListMedia): string {
+  const title = pickTitle(media);
+  const cover = media.coverImage.extraLarge || media.coverImage.large;
+  const type = FORMAT_MAP[media.format] ?? "TV";
+  const status = STATUS_MAP[media.status] ?? "Ongoing";
+  const studio = media.studios?.nodes?.[0]?.name ?? "Unknown";
+  const genres = (media.genres ?? []).slice(0, 3).join(", ");
+  const rating = media.averageScore ? (media.averageScore / 10).toFixed(1) : "0";
+
+  const y = media.startDate?.year ?? media.seasonYear ?? 2020;
+  const m = String(media.startDate?.month ?? 1).padStart(2, "0");
+  const d = String(media.startDate?.day ?? 1).padStart(2, "0");
+  const releaseDate = `${y}-${m}-${d}`;
+  const addedAt = new Date().toISOString().split("T")[0];
+
+  const safeTitle = /[:#&*!|>'"%@`]/.test(title) ? `"${title.replace(/"/g, '\\"')}"` : title;
+
+  return `---
+title: ${safeTitle}
+cover: ${cover}
+type: ${type}
+status: ${status}
+genre: [${genres}]
+studio: ${studio}
+releaseDate: ${releaseDate}
+addedAt: ${addedAt}
+rating: ${rating}
+episodes: []
+---`;
+}
+
+function buildInfoMessage(media: AniListMedia): string {
+  const title = pickTitle(media);
+  const year = media.startDate?.year ?? media.seasonYear ?? "-";
+  const studio = media.studios?.nodes?.[0]?.name ?? "Unknown";
+  const genres = (media.genres ?? []).slice(0, 3).join(", ") || "-";
+  const rating = media.averageScore ? (media.averageScore / 10).toFixed(1) : "-";
+  const status = STATUS_MAP[media.status] ?? media.status;
+  const type = FORMAT_MAP[media.format] ?? media.format;
+
+  return (
+    `<b>${escapeHtml(title)}</b>\n\n` +
+    `📅 Tahun: ${year}\n` +
+    `🎬 Tipe: ${type}\n` +
+    `📌 Status: ${status}\n` +
+    `📼 Episode: ${media.episodes ?? "-"}\n` +
+    `🏢 Studio: ${escapeHtml(studio)}\n` +
+    `🏷️ Genre: ${escapeHtml(genres)}\n` +
+    `⭐ Rating: ${rating}`
+  );
+}
+
+async function handleAnimeCommand(ctx: any, query: string): Promise<void> {
+  const q = query.trim();
+  if (!q) {
+    await ctx.reply(
+      "Kasih judul anime-nya.\n\n" +
+        "Contoh:\n" +
+        "<code>/anime jujutsu kaisen</code>\n\n" +
+        "Atau reply ke pesan yang berisi judul, lalu kirim <code>/anime</code>.",
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+
+  const loading = await ctx.reply("🔍 Mencari...");
+
+  try {
+    const media = await searchAniList(q);
+
+    if (!media) {
+      await ctx.api.editMessageText(
+        ctx.chat.id,
+        loading.message_id,
+        `❌ Anime "${escapeHtml(q)}" tidak ditemukan di AniList.`,
+        { parse_mode: "HTML" }
+      );
+      return;
+    }
+
+    await ctx.api.editMessageText(
+      ctx.chat.id,
+      loading.message_id,
+      buildInfoMessage(media),
+      { parse_mode: "HTML" }
+    );
+
+    const yaml = buildYaml(media);
+    await ctx.reply(
+      `<b>YAML Frontmatter</b>\n\n<pre><code class="language-yaml">${escapeHtml(yaml)}</code></pre>`,
+      { parse_mode: "HTML" }
+    );
+
+    const cover = media.coverImage.extraLarge || media.coverImage.large;
+    await ctx.replyWithPhoto(cover);
+  } catch (err: any) {
+    await ctx.api
+      .editMessageText(
+        ctx.chat.id,
+        loading.message_id,
+        `❌ Error: ${escapeHtml(err?.message ?? "unknown")}`
+      )
+      .catch(() => {});
+  }
+}
+
 function pemToArrayBuffer(pem: string): ArrayBuffer {
   const b64 = pem
     .replace(/-----BEGIN PRIVATE KEY-----/, "")
@@ -169,6 +362,19 @@ export default {
       }
     });
 
+    bot.command("anime", async (ctx) => {
+      if (ctx.from?.id !== ADMIN_USER_ID) {
+        await ctx.reply("⛔ Command ini hanya untuk admin.");
+        return;
+      }
+
+      const argQuery = ctx.match?.trim() ?? "";
+      const repliedText = ctx.message?.reply_to_message?.text;
+      const query = argQuery || repliedText || "";
+
+      await handleAnimeCommand(ctx, query);
+    });
+
     bot
       .filter((ctx) => {
         const msg = ctx.message;
@@ -201,7 +407,7 @@ async function handleGithub(request: Request, env: Env): Promise<Response> {
   const body = await request.text();
   const signature = request.headers.get("x-hub-signature-256");
 
-  const valid = await verifySignature(env.GITHUB_WEBHOOK_SECRET, body, signature);
+  const valid = await verifySignature(env.GH_WEBHOOK_SECRET, body, signature);
   if (!valid) return new Response("Invalid signature", { status: 401 });
 
   const event = request.headers.get("x-github-event");
